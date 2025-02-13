@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valentine's Day Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #ff6b6b;
+            --secondary-color: #ff8e8e;
+            --text-color: #2c3e50;
+            --shadow-color: rgba(0,0,0,0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            font-family: 'Poppins', sans-serif;
+            overflow: hidden;
+        }
+
+        .game-container {
+            text-align: center;
+            padding: 1rem;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        canvas {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px var(--shadow-color);
+            transition: transform 0.3s ease;
+            max-width: 100%;
+            height: auto;
+        }
+
+        canvas:hover {
+            transform: translateY(-5px);
+        }
+
+        h1 {
+            color: white;
+            text-shadow: 2px 2px 4px var(--shadow-color);
+            margin-bottom: 2rem;
+            font-size: clamp(1.5rem, 5vw, 2.5rem);
+            padding: 0 1rem;
+        }
+
+        .score {
+            color: white;
+            font-size: clamp(1rem, 3vw, 1.5rem);
+            margin-top: 1rem;
+        }
+
+        .hearts {
+            position: absolute;
+            pointer-events: none;
+        }
+
+        /* Responsive breakpoints */
+        @media (max-width: 768px) {
+            .game-container {
+                padding: 0.5rem;
+            }
+
+            canvas {
+                border-radius: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .game-container {
+                padding: 0.25rem;
+            }
+
+            h1 {
+                margin-bottom: 1rem;
+            }
+        }
+
+        /* Orientation warning */
+        .orientation-warning {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--primary-color);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @media (max-height: 450px) and (orientation: landscape) {
+            .orientation-warning {
+                display: flex;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="orientation-warning">
+        <h2>Please rotate your device to portrait mode for the best experience! 📱</h2>
+    </div>
+
+    <div class="game-container">
+        <h1>Save Love with Cupid's Arrow! ❤️</h1>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div class="score">Attempts: <span id="attempts">0</span></div>
+    </div>
+
+    <script type="module">
+        class ValentineGame {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.attempts = 0;
+                this.attemptsElement = document.getElementById('attempts');
+                
+                // Set initial canvas size
+                this.resizeCanvas();
+                
+                this.gameState = {
+                    started: false,
+                    won: false,
+                    arrowX: 100,
+                    arrowY: 300,
+                    targetX: 700,
+                    targetY: 300,
+                    arrowSpeed: 10,
+                    arrowFlying: false,
+                    angle: 0
+                };
+
+                this.setupEventListeners();
+                this.loadAssets();
+                this.gameLoop();
+            }
+
+            resizeCanvas() {
+                const container = this.canvas.parentElement;
+                const containerWidth = container.clientWidth;
+                const aspectRatio = 4/3;
+                
+                // Calculate new dimensions while maintaining aspect ratio
+                let newWidth = Math.min(containerWidth - 40, 800); // 20px padding on each side
+                let newHeight = newWidth / aspectRatio;
+
+                // Update canvas size
+                this.canvas.style.width = `${newWidth}px`;
+                this.canvas.style.height = `${newHeight}px`;
+
+                // Scale game coordinates
+                this.scale = newWidth / 800;
+                
+                // Update game state positions based on scale
+                if (this.gameState) {
+                    this.gameState.targetX = 700 * this.scale;
+                    this.gameState.targetY = 300 * this.scale;
+                    if (!this.gameState.arrowFlying) {
+                        this.gameState.arrowX = 100 * this.scale;
+                        this.gameState.arrowY = 300 * this.scale;
+                    }
+                }
+            }
+
+            loadAssets() {
+                this.assets = {
+                    heart: new Image()
+                };
+                this.assets.heart.src = '/static/heart.png';
+            }
+
+            setupEventListeners() {
+                this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
+                this.canvas.addEventListener('click', this.handleClick.bind(this));
+                this.canvas.addEventListener('touchstart', this.handleTouch.bind(this));
+                this.canvas.addEventListener('touchmove', this.handleTouch.bind(this));
+                window.addEventListener('resize', () => {
+                    this.resizeCanvas();
+                });
+            }
+
+            handleTouch(e) {
+                e.preventDefault();
+                if (!this.gameState.arrowFlying && !this.gameState.won) {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const touch = e.touches[0];
+                    const touchX = touch.clientX - rect.left;
+                    const touchY = touch.clientY - rect.top;
+                    
+                    this.gameState.angle = Math.atan2(
+                        touchY - this.gameState.arrowY,
+                        touchX - this.gameState.arrowX
+                    );
+
+                    if (e.type === 'touchstart') {
+                        this.gameState.arrowFlying = true;
+                        this.attempts++;
+                        this.attemptsElement.textContent = this.attempts;
+                    }
+                }
+            }
+
+            handleMouseMove(e) {
+                if (!this.gameState.arrowFlying && !this.gameState.won) {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const mouseX = (e.clientX - rect.left) * (this.canvas.width / rect.width);
+                    const mouseY = (e.clientY - rect.top) * (this.canvas.height / rect.height);
+                    
+                    this.gameState.angle = Math.atan2(
+                        mouseY - this.gameState.arrowY,
+                        mouseX - this.gameState.arrowX
+                    );
+                }
+            }
+
+            handleClick() {
+                if (!this.gameState.arrowFlying && !this.gameState.won) {
+                    this.gameState.arrowFlying = true;
+                    this.attempts++;
+                    this.attemptsElement.textContent = this.attempts;
+                }
+            }
+
+            drawArrow() {
+                const { ctx } = this;
+                const { arrowX, arrowY, angle } = this.gameState;
+                const arrowSize = 30 * this.scale;
+
+                ctx.save();
+                ctx.translate(arrowX, arrowY);
+                ctx.rotate(angle);
+                
+                // Arrow shaft
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(arrowSize, 0);
+                
+                // Arrow head
+                ctx.moveTo(arrowSize, 0);
+                ctx.lineTo(arrowSize * 0.7, -arrowSize * 0.2);
+                ctx.moveTo(arrowSize, 0);
+                ctx.lineTo(arrowSize * 0.7, arrowSize * 0.2);
+                
+                ctx.strokeStyle = '#FF69B4';
+                ctx.lineWidth = 3 * this.scale;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            drawTarget() {
+                const { ctx } = this;
+                const { targetX, targetY } = this.gameState;
+                const targetSize = 20 * this.scale;
+
+                // Draw outer circle
+                ctx.beginPath();
+                ctx.arc(targetX, targetY, targetSize, 0, Math.PI * 2);
+                ctx.fillStyle = '#FF0000';
+                ctx.fill();
+
+                // Draw inner circle
+                ctx.beginPath();
+                ctx.arc(targetX, targetY, targetSize * 0.5, 0, Math.PI * 2);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fill();
+            }
+
+            checkCollision() {
+                const { arrowX, arrowY, targetX, targetY } = this.gameState;
+                const dx = arrowX - targetX;
+                const dy = arrowY - targetY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < 30 * this.scale;
+            }
+
+            createHeart(x, y) {
+                const heart = document.createElement('div');
+                heart.className = 'hearts';
+                heart.style.left = `${x}px`;
+                heart.style.top = `${y}px`;
+                heart.innerHTML = '❤️';
+                heart.style.fontSize = `${Math.max(20, Math.min(30, window.innerWidth / 20))}px`;
+                document.body.appendChild(heart);
+                
+                setTimeout(() => heart.remove(), 1000);
+            }
+
+            drawWinScreen() {
+                const { ctx, canvas } = this;
+                
+                ctx.fillStyle = 'rgba(255, 192, 203, 0.3)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                const fontSize = Math.max(24, Math.min(48, canvas.width / 15));
+                ctx.font = `${fontSize}px Poppins`;
+                ctx.fillStyle = '#FF1493';
+                ctx.textAlign = 'center';
+                ctx.fillText('Happy Valentine\'s Day! ❤️', canvas.width/2, canvas.height/2);
+                
+                if (Math.random() < 0.1) {
+                    this.createHeart(
+                        Math.random() * window.innerWidth,
+                        Math.random() * window.innerHeight
+                    );
+                }
+            }
+
+            update() {
+                if (this.gameState.arrowFlying) {
+                    const { arrowSpeed, angle } = this.gameState;
+                    const scaledSpeed = arrowSpeed * this.scale;
+                    this.gameState.arrowX += scaledSpeed * Math.cos(angle);
+                    this.gameState.arrowY += scaledSpeed * Math.sin(angle);
+                    
+                    if (this.checkCollision()) {
+                        this.gameState.won = true;
+                    }
+                    
+                    if (this.gameState.arrowX > this.canvas.width ||
+                        this.gameState.arrowX < 0 ||
+                        this.gameState.arrowY > this.canvas.height ||
+                        this.gameState.arrowY < 0) {
+                        this.gameState.arrowFlying = false;
+                        this.gameState.arrowX = 100 * this.scale;
+                        this.gameState.arrowY = 300 * this.scale;
+                    }
+                }
+            }
+
+            render() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                if (!this.gameState.won) {
+                    this.drawTarget();
+                    this.drawArrow();
+                } else {
+                    this.drawWinScreen();
+                }
+            }
+
+            gameLoop() {
+                this.update();
+                this.render();
+                requestAnimationFrame(this.gameLoop.bind(this));
+            }
+        }
+
+        // Start the game when the page loads
+        window.addEventListener('load', () => {
+            new ValentineGame();
+        });
+    </script>
+</body>
+</html>
