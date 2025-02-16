@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/nav_home">
+
+    <fragment
+        android:id="@+id/nav_home"
+        android:name="com.example.mymealmatev1.ui.fragments.HomeFragment"
+        android:label="Home" />
+
+    <fragment
+        android:id="@+id/nav_recipes"
+        android:name="com.example.mymealmatev1.ui.fragments.RecipesFragment"
+        android:label="Recipes" />
+
+    <fragment
+        android:id="@+id/nav_meal_plan"
+        android:name="com.example.mymealmatev1.ui.fragments.MealPlanFragment"
+        android:label="Meal Plan" />
+
+    <fragment
+        android:id="@+id/nav_grocery_list"
+        android:name="com.example.mymealmatev1.ui.fragments.GroceryListFragment"
+        android:label="Grocery List" />
+
+    <fragment
+        android:id="@+id/nav_settings"
+        android:name="com.example.mymealmatev1.ui.fragments.SettingsFragment"
+        android:label="Settings" />
+</navigation>
